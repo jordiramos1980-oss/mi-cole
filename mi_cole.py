@@ -1,166 +1,199 @@
 import streamlit as st
 from gtts import gTTS
 import io, PyPDF2, random
+
+# Intentamos importar FPDF para la descarga de deberes
 try:
     from fpdf import FPDF
 except ImportError:
-    st.error("⚠️ Te falta instalar: Escribe 'pip install fpdf' en la terminal")
+    st.error("⚠️ Falta la librería fpdf. Recuerda añadir 'fpdf2' en requirements.txt")
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Mi Cole Personalizado", page_icon="🏫", layout="wide")
 
-# --- FUNCIONES ---
+# --- FUNCIONES DE APOYO ---
 def leer_pdf(f):
     try:
         reader = PyPDF2.PdfReader(f)
         texto = "".join([p.extract_text() for p in reader.pages if p.extract_text()])
-        return texto if texto.strip() else "⚠️ PDF sin texto."
-    except: return "❌ Error al leer PDF."
+        return texto if texto.strip() else "⚠️ El PDF parece estar vacío o es una imagen."
+    except Exception as e:
+        return f"❌ Error al leer el archivo: {e}"
 
 def crear_audio(txt, lang, vel_lenta):
-    tts = gTTS(text=txt, lang=lang, slow=vel_lenta)
-    fp = io.BytesIO()
-    tts.write_to_fp(fp)
-    return fp
+    try:
+        tts = gTTS(text=txt, lang=lang, slow=vel_lenta)
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        return fp
+    except:
+        return None
 
 def gen_prob(tipo_sel, nombre):
-    objetos = ["canicas", "cromos", "caramelos", "lápices", "manzanas", "estrellas", "cromos de fútbol", "pegatinas"]
+    objetos = ["canicas", "cromos", "caramelos", "lápices", "manzanas", "estrellas", "pegatinas", "balones"]
     o = random.choice(objetos)
-    
     t = tipo_sel
     if t == "Mixto":
         t = random.choice(["Suma", "Resta", "Multiplicación", "División"])
     
     if t == "Suma":
         a, b = random.randint(10, 99), random.randint(10, 99)
-        return f"🌟 {nombre}, tienes {a} {o} y te regalan {b} más. ¿Cuántos tienes en total?", a + b
+        return f"🌟 {nombre}, tienes {a} {o} y te regalan {b} más. ¿Cuántos tienes ahora?", a + b
     elif t == "Resta":
         a, b = random.randint(50, 99), random.randint(5, 45)
-        return f"🍎 {nombre}, tenías {a} {o} pero has perdido {b}. ¿Cuántos te quedan ahora?", a - b
+        return f"🍎 {nombre}, tenías {a} {o} pero has perdido {b}. ¿Cuántos te quedan?", a - b
     elif t == "Multiplicación":
         a, b = random.randint(2, 9), random.randint(3, 10)
-        return f"📦 {nombre}, hay {a} cajas y cada una tiene {b} {o}. ¿Cuántos {o} hay por todos?", a * b
+        return f"📦 {nombre}, tienes {a} bolsas y cada una tiene {b} {o}. ¿Cuántos hay en total?", a * b
     elif t == "División":
-        b = random.randint(2, 5)
-        res = random.randint(2, 10)
-        a = b * res
-        return f"🍕 {nombre}, quieres repartir {a} {o} entre {b} amigos a partes iguales. ¿Cuántos le tocan a cada uno?", res
-    return "Error", 0
+        divisor = random.randint(2, 5)
+        cociente = random.randint(2, 10)
+        dividendo = divisor * cociente
+        return f"🍕 {nombre}, quieres repartir {dividendo} {o} entre {divisor} amigos. ¿Cuántos le tocan a cada uno?", cociente
+    return "Error al generar", 0
 
-# --- MEMORIA ---
+# --- GESTIÓN DE MEMORIA (SESSION STATE) ---
 if 'usuarios' not in st.session_state:
     st.session_state.usuarios = {"Jordi": {"puntos": 0, "nivel": 1}} 
 
 if 'usuario_actual' not in st.session_state:
     st.session_state.usuario_actual = None
 
-# --- PANTALLA INICIO ---
+# --- PANTALLA DE ACCESO ---
 if st.session_state.usuario_actual is None:
-    st.title("👋 ¡Bienvenidos al Cole!")
-    nom = st.text_input("¿Cómo te llamas?").capitalize()
-    if st.button("¡Entrar a Clase!"):
-        if nom:
-            st.session_state.usuario_actual = nom
-            if nom not in st.session_state.usuarios:
-                st.session_state.usuarios[nom] = {"puntos": 0, "nivel": 1}
-            st.rerun()
+    st.title("👋 ¡Bienvenidos a Mi Cole!")
+    st.subheader("Tu rincón para aprender jugando")
+    
+    with st.container():
+        nom_input = st.text_input("Escribe tu nombre para empezar:").strip().capitalize()
+        if st.button("🚀 ¡Entrar a Clase!"):
+            if nom_input:
+                st.session_state.usuario_actual = nom_input
+                if nom_input not in st.session_state.usuarios:
+                    st.session_state.usuarios[nom_input] = {"puntos": 0, "nivel": 1}
+                st.rerun()
+            else:
+                st.warning("¡Oye! No olvides decirme cómo te llamas.")
+    
     st.markdown("---")
     st.caption("👨‍🏫 Creado por: **Jordi Ramos Gomez**")
     st.caption("📧 Contacto: jordiramos1980@gmail.com")
 
+# --- APLICACIÓN PRINCIPAL ---
 else:
     nombre = st.session_state.usuario_actual
     datos = st.session_state.usuarios[nombre]
     
+    # Barra lateral con información
     st.sidebar.title(f"🎒 Pupitre de {nombre}")
-    st.sidebar.metric("🏆 Mis Puntos", datos["puntos"])
-    op = st.sidebar.radio("Menú", ["Matemáticas", "Dictados", "Mis Deberes", "Mis Compañeros"])
-    if st.sidebar.button("Cerrar Sesión"):
+    st.sidebar.metric("🏆 Mis Puntos", f"{datos['puntos']} pts")
+    st.sidebar.write(f"📈 Nivel de Tablas: {datos['nivel']}/10")
+    
+    menu = st.sidebar.radio("¿Qué quieres hacer hoy?", ["Matemáticas", "Dictados", "Mis Deberes", "Mis Compañeros"])
+    
+    if st.sidebar.button("🚪 Cerrar Sesión"):
         st.session_state.usuario_actual = None
         st.rerun()
 
-    if op == "Matemáticas":
-        st.header(f"🔢 ¡A por todas, {nombre}!")
-        t1, t2 = st.tabs(["Tablas y Exámenes", "Desafío de 5 Problemas"])
+    # 1. SECCIÓN MATEMÁTICAS
+    if menu == "Matemáticas":
+        st.header(f"🔢 Desafío Matemático")
+        tab1, tab2 = st.tabs(["🎯 Examen de Tablas", "🎲 Los 5 Problemas"])
         
-        with t1:
+        with tab1:
             nv = datos["nivel"]
             if nv <= 10:
-                st.subheader(f"Nivel {nv}: Tabla del {nv}")
-                c1, c2 = st.columns(2)
-                with c1:
+                st.subheader(f"Estás en el Nivel {nv} (Tabla del {nv})")
+                col_a, col_b = st.columns(2)
+                with col_a:
                     for i in range(1, 11): st.write(f"{nv} x {i} = **{nv*i}**")
-                with c2:
-                    with st.form("ex"):
-                        p = [2, 5, 8]
-                        r = [st.number_input(f"¿{nv} x {i}?", step=1, key=f"ex{i}") for i in p]
-                        if st.form_submit_button("Corregir"):
-                            ac = sum(1 for idx, val in enumerate(r) if val == nv*p[idx])
-                            st.session_state.usuarios[nombre]["puntos"] += ac * 10
-                            if ac == 3:
-                                st.balloons(); st.session_state.usuarios[nombre]["nivel"] += 1
-                            st.rerun()
-            else: st.success("🎊 ¡TABLAS COMPLETADAS!")
+                with col_b:
+                    st.write("📝 **¡Demuestra lo que sabes!**")
+                    with st.form("form_examen"):
+                        preguntas = [2, 5, 8, 9]
+                        respuestas = [st.number_input(f"¿{nv} x {p}?", step=1, key=f"ex_{p}") for p in preguntas]
+                        if st.form_submit_button("Corregir Examen"):
+                            correctas = 0
+                            for i, res in enumerate(respuestas):
+                                if res == nv * preguntas[i]:
+                                    st.success(f"✅ {nv} x {preguntas[i]} = {res} ¡Bien!")
+                                    correctas += 1
+                                else:
+                                    st.error(f"❌ {nv} x {preguntas[i]} era {nv*preguntas[i]}")
+                            
+                            st.session_state.usuarios[nombre]["puntos"] += correctas * 10
+                            if correctas == len(preguntas):
+                                st.balloons()
+                                st.session_state.usuarios[nombre]["nivel"] += 1
+                                st.info("¡Has subido de nivel! Cambia de pestaña para actualizar.")
+            else:
+                st.success("🎊 ¡Felicidades! Has completado todas las tablas.")
 
-        with t2:
-            st.subheader("🎲 Los 5 Desafíos")
-            
-            # Si no hay problemas o ya se terminaron, dejamos elegir tipo
-            if 'lista_problemas' not in st.session_state:
-                tipo_p = st.selectbox("Elige operación:", ["Suma", "Resta", "Multiplicación", "División", "Mixto"])
-                if st.button("¡Generar 5 Problemas Nuevos!"):
-                    st.session_state.lista_problemas = []
+        with tab2:
+            st.subheader("Desafío de los 5 Problemas")
+            if 'lista_p' not in st.session_state:
+                tipo = st.selectbox("Elige operación:", ["Suma", "Resta", "Multiplicación", "División", "Mixto"])
+                if st.button("¡Generar 5 Problemas!"):
+                    st.session_state.lista_p = []
                     for _ in range(5):
-                        en, sol = gen_prob(tipo_p, nombre)
-                        st.session_state.lista_problemas.append({"enunciado": en, "solucion": sol, "resuelto": False})
+                        en, sol = gen_prob(tipo, nombre)
+                        st.session_state.lista_p.append({"en": en, "sol": sol, "resuelto": False})
                     st.rerun()
             else:
-                st.warning("🎯 Tienes 5 problemas pendientes. ¡Resuélvelos todos para pedir más!")
-                
-                completados = 0
-                for idx, p in enumerate(st.session_state.lista_problemas):
+                puntos_ganados = 0
+                for idx, p in enumerate(st.session_state.lista_p):
                     with st.expander(f"Problema {idx+1} {'✅' if p['resuelto'] else '❓'}", expanded=not p['resuelto']):
-                        st.write(p['enunciado'])
+                        st.write(p['en'])
                         if not p['resuelto']:
-                            res_niño = st.number_input("Tu respuesta:", key=f"prob_{idx}", step=1)
-                            if st.button("Comprobar", key=f"btn_{idx}"):
-                                if res_niño == p['solucion']:
-                                    st.session_state.lista_problemas[idx]['resuelto'] = True
+                            r_niño = st.number_input("Respuesta:", key=f"in_{idx}", step=1)
+                            if st.button("Comprobar", key=f"bt_{idx}"):
+                                if r_niño == p['sol']:
+                                    st.session_state.lista_p[idx]['resuelto'] = True
                                     st.session_state.usuarios[nombre]["puntos"] += 50
-                                    st.success("¡Bien hecho! +50 puntos")
                                     st.rerun()
                                 else:
-                                    st.error("¡Casi! Revisa la cuenta.")
+                                    st.error("¡Casi! Inténtalo de nuevo.")
                         else:
-                            st.write(f"**Completado.** La respuesta era {p['solucion']}.")
-                            completados += 1
+                            st.success(f"¡Hecho! Resultado: {p['sol']}")
+                            puntos_ganados += 1
                 
-                if completados == 5:
+                if puntos_ganados == 5:
                     st.balloons()
-                    st.success("🏆 ¡Increíble! Has terminado los 5 problemas.")
-                    if st.button("Limpiar y pedir nuevos"):
-                        del st.session_state.lista_problemas
+                    if st.button("🎉 ¡Reto superado! Pedir otros 5"):
+                        del st.session_state.lista_p
                         st.rerun()
 
-    elif op == "Dictados":
-        st.header("📝 Rincón de los Dictados")
-        f = st.file_uploader("Sube el PDF", type=["pdf"])
-        if f:
-            vel = st.radio("Velocidad:", ["Normal", "Lento"], horizontal=True)
-            if st.button("¡Escuchar! 🎤"):
-                t = leer_pdf(f)
-                st.audio(crear_audio(t, "es", (vel == "Lento")))
-                st.write(t)
+    # 2. SECCIÓN DICTADOS
+    elif menu == "Dictados":
+        st.header("📝 Rincón de Dictados")
+        st.write("Sube un PDF y practicaré contigo.")
+        archivo = st.file_uploader("Elige tu PDF", type=["pdf"])
+        if archivo:
+            velocidad = st.radio("Velocidad de voz:", ["Normal", "Tortuga (Lento)"], horizontal=True)
+            if st.button("🎤 Empezar Dictado"):
+                texto = leer_pdf(archivo)
+                audio = crear_audio(texto, "es", (velocidad != "Normal"))
+                if audio:
+                    st.audio(audio)
+                    st.write("**Texto extraído:**")
+                    st.info(texto)
 
-    elif op == "Mis Deberes":
+    # 3. SECCIÓN DEBERES
+    elif menu == "Mis Deberes":
         st.header("📚 Mis Tareas")
-        f = st.file_uploader("Archivo PDF", type=["pdf"])
-        if f: st.info(leer_pdf(f))
+        archivo = st.file_uploader("Sube tus deberes para leerlos", type=["pdf"])
+        if archivo:
+            texto = leer_pdf(archivo)
+            st.write("📖 Contenido de tu tarea:")
+            st.info(texto)
 
-    elif op == "Mis Compañeros":
-        st.header("👥 Lista de Clase")
+    # 4. SECCIÓN COMPAÑEROS
+    elif menu == "Mis Compañeros":
+        st.header("👥 Ranking de la Clase")
         for u, d in st.session_state.usuarios.items():
-            st.write(f"👤 **{u}**: {d['puntos']} puntos (Nivel {d['nivel']})")
+            icono = "⭐" if u == nombre else "👤"
+            st.write(f"{icono} **{u}**: {d['puntos']} puntos | Nivel {d['nivel']}")
 
+    # --- PIE DE PÁGINA COMÚN ---
     st.markdown("---")
-    st.caption("👨‍💻 Creado por: **Jordi Ramos Gomez**")
+    st.caption(f"👨‍💻 Aplicación creada por **Jordi Ramos Gomez** para sus alumnos.")
