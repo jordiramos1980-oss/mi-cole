@@ -1,0 +1,4 @@
+streamlit
+gTTS
+PyPDF2
+fpdf2
